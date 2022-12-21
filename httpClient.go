@@ -18,13 +18,15 @@ import (
 type httpClient struct {
 	connectWS string
 	listenTCP string
+	nodeID    string
 }
 
 // NewHTTPClient creates a new TCP server which connects tunnels to an HTTP server
-func NewHTTPClient(listenTCP, connectWS string) Runner {
+func NewHTTPClient(listenTCP string, connectWS string, nodeID string) Runner {
 	return &httpClient{
 		connectWS: connectWS,
 		listenTCP: listenTCP,
+		nodeID:    nodeID,
 	}
 }
 
@@ -80,7 +82,11 @@ func (h *httpClient) createWsConnection(remoteAddr string) (wsConn *websocket.Co
 		}
 		log.Printf("%s - Connecting to %s", remoteAddr, wsURL)
 		var httpResponse *http.Response
-		wsConn, httpResponse, err = websocket.DefaultDialer.Dial(wsURL, nil)
+
+		header := http.Header{}
+		header.Set("X-NODE-ID", h.nodeID)
+
+		wsConn, httpResponse, err = websocket.DefaultDialer.Dial(wsURL, header)
 		if httpResponse != nil {
 			switch httpResponse.StatusCode {
 			case http.StatusMovedPermanently, http.StatusFound, http.StatusSeeOther, http.StatusTemporaryRedirect, http.StatusPermanentRedirect:

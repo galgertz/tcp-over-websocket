@@ -15,13 +15,14 @@ func globalUsage() {
 	fmt.Fprintln(os.Stderr, " - client: TCP server which connects to a websocket server")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example: connect to ssh-server through an HTTP proxy running on ws-server")
-	fmt.Fprintln(os.Stderr, "-", os.Args[0], "server -listen_ws :8080 -connect_tcp ssh-server.example.org:22")
-	fmt.Fprintln(os.Stderr, "-", os.Args[0], "client -listen_tcp 127.0.0.1:1234 -connect_ws ws://ws-server.example.org:8080/")
+	fmt.Fprintln(os.Stderr, "-", os.Args[0], "server -listen_ws :8080 -connect_tcp ssh-server.example.org:22 -tls_cert_path /path/to/cert.pem -tls_key_path /path/to/key.pem")
+	fmt.Fprintln(os.Stderr, "-", os.Args[0], "client -listen_tcp 127.0.0.1:1234 -connect_ws ws://ws-server.example.org:8080/ -node_id 1234")
 	os.Exit(1)
 }
 
 func createHTTPServer(args []string) Runner {
 	listen, connect := "", ""
+	tlsCertPath, tlsKeyPath := "", ""
 
 	fs := flag.NewFlagSet("server", flag.ExitOnError)
 	fs.StringVar(&listen, "listen_ws", "",
@@ -30,18 +31,25 @@ func createHTTPServer(args []string) Runner {
 	fs.StringVar(&connect, "connect_tcp", "",
 		"Remote address to connect to at each incoming websocket connection\n"+
 			"Examples: \"127.0.0.1:23\", \"ssh.example.com:22\", \"[::1]:143\"")
+	fs.StringVar(&tlsCertPath, "tls_cert_path", "",
+		"Remote address to connect to at each incoming websocket connection\n"+
+			"Examples: \"127.0.0.1:23\", \"ssh.example.com:22\", \"[::1]:143\"")
+	fs.StringVar(&tlsKeyPath, "tls_key_path", "",
+		"Remote address to connect to at each incoming websocket connection\n"+
+			"Examples: \"127.0.0.1:23\", \"ssh.example.com:22\", \"[::1]:143\"")
 	fs.Parse(args)
 
-	if listen == "" || connect == "" {
+	if listen == "" || connect == "" || tlsCertPath == "" || tlsKeyPath == "" {
 		fs.Usage()
 		os.Exit(1)
 	}
 
-	return NewHTTPServer(listen, connect)
+	return NewHTTPServer(listen, connect, tlsCertPath, tlsKeyPath)
 }
 
 func createHTTPClient(args []string) Runner {
 	listen, connect := "", ""
+	nodeID := ""
 
 	fs := flag.NewFlagSet("client", flag.ExitOnError)
 	fs.StringVar(&listen, "listen_tcp", "",
@@ -49,16 +57,17 @@ func createHTTPClient(args []string) Runner {
 			"Examples: \":8080\", \"127.0.0.1:1234\", \"[::1]:5000\")")
 	fs.StringVar(&connect, "connect_ws", "",
 		"Remote websocket to connect to at each incoming TCP connection \n"+
-			"Examples: \"ws://192.168.0.1:8080/\", \"wss://https.example.org/\", \"ws://[::1]/\"\n"+
-			"If the server is behind a reverse proxy, it may be something like: \"wss://https.example.org/fragment/\"")
+			"Examples: \"ws://192.168.0.1:8080/\", \"wss://https.example.org/\", \"ws://[::1]/\"\n")
+	fs.StringVar(&nodeID, "node_id", "",
+		"Current Node ID, will be used as request header")
 	fs.Parse(args)
 
-	if listen == "" || connect == "" {
+	if listen == "" || connect == "" || nodeID == "" {
 		fs.Usage()
 		os.Exit(1)
 	}
 
-	return NewHTTPClient(listen, connect)
+	return NewHTTPClient(listen, connect, nodeID)
 }
 
 func create() Runner {

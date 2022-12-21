@@ -14,13 +14,15 @@ import (
 
 // httpServer implements the Runner interface
 type httpServer struct {
-	wsHandler  wsHandler
-	listenHTTP string
-	httpMux    *http.ServeMux
+	wsHandler   wsHandler
+	listenHTTP  string
+	httpMux     *http.ServeMux
+	tlsCertPath string
+	tlsKeyPath  string
 }
 
 // NewHTTPServer creates a new websocket server which will wait for clients and open TCP connections
-func NewHTTPServer(listenHTTP, connectTCP string) Runner {
+func NewHTTPServer(listenHTTP string, connectTCP string, tlsCertFile string, tlsKeyFile string) Runner {
 	result := &httpServer{
 		wsHandler: wsHandler{
 			connectTCP: connectTCP,
@@ -30,8 +32,10 @@ func NewHTTPServer(listenHTTP, connectTCP string) Runner {
 				CheckOrigin:     func(r *http.Request) bool { return true },
 			},
 		},
-		listenHTTP: listenHTTP,
-		httpMux:    &http.ServeMux{},
+		listenHTTP:  listenHTTP,
+		httpMux:     &http.ServeMux{},
+		tlsCertPath: tlsCertFile,
+		tlsKeyPath:  tlsKeyFile,
 	}
 
 	result.httpMux.Handle("/", &result.wsHandler)
@@ -40,7 +44,7 @@ func NewHTTPServer(listenHTTP, connectTCP string) Runner {
 
 func (h *httpServer) Run() error {
 	log.Printf("Listening to %s", h.listenHTTP)
-	return http.ListenAndServe(h.listenHTTP, h.httpMux)
+	return http.ListenAndServeTLS(h.listenHTTP, h.tlsCertPath, h.tlsKeyPath, h.httpMux)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -54,6 +58,10 @@ type wsHandler struct {
 }
 
 func (ws *wsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Log all the request headers
+	for header, value := range r.Header {
+		log.Printf("%s: %s", header, value)
+	}
 
 	httpConn, err := ws.wsUpgrader.Upgrade(w, r, nil)
 	if err != nil {
